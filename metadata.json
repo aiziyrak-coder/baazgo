@@ -1,0 +1,8 @@
+{
+  "name": "FoodTruckGo Uzbekistan",
+  "description": "O'zbekiston bo'ylab food trucklarni ijaraga olish, bron qilish va boshqarish uchun maxsus xarita va to'lov tizimi integratsiyalashgan platforma.",
+  "requestFramePermissions": [
+    "geolocation"
+  ],
+  "majorCapabilities": []
+}

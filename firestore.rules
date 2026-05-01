@@ -1,0 +1,102 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 0. Default Deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Global Helpers ---
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      // In this app, we check if user role in /users is 'admin'
+      // Or for bootstrapping, a specific email if needed.
+      // Better to check a dedicated 'admins' collection or just the role.
+      return isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    function isValidId(id) {
+       return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // --- Validation Helpers ---
+
+    function isValidUser(data) {
+      return data.keys().hasAll(['name', 'email', 'role', 'createdAt']) &&
+             data.keys().size() == 4 &&
+             data.name is string && data.name.size() > 0 && data.name.size() <= 100 &&
+             data.email is string && data.email.size() <= 254 &&
+             data.role in ['user', 'admin'] &&
+             data.createdAt == request.time;
+    }
+
+    function isValidFoodTruck(data) {
+      return data.keys().hasAll(['name', 'pricePerDay', 'latitude', 'longitude', 'status', 'createdAt']) &&
+             data.name is string && data.name.size() <= 200 &&
+             data.pricePerDay is number && data.pricePerDay >= 0 &&
+             data.latitude is number && data.longitude is number &&
+             data.status in ['available', 'rented', 'maintenance'] &&
+             data.createdAt == request.time;
+    }
+
+    function isValidBooking(data) {
+      return data.keys().hasAll(['truckId', 'userId', 'startDate', 'endDate', 'totalPrice', 'status', 'createdAt']) &&
+             data.truckId is string &&
+             data.userId == request.auth.uid &&
+             data.totalPrice is number && data.totalPrice >= 0 &&
+             data.status in ['pending', 'confirmed', 'cancelled', 'completed'] &&
+             data.createdAt == (resource == null ? request.time : resource.data.createdAt);
+    }
+
+    // --- Collection Rules ---
+
+    match /users/{userId} {
+      allow get: if isOwner(userId) || isAdmin();
+      allow list: if isAdmin();
+      allow create: if isOwner(userId) && isValidUser(incoming()) && incoming().role == 'user';
+      allow update: if isOwner(userId) && 
+                      incoming().diff(existing()).affectedKeys().hasOnly(['name', 'email']) &&
+                      isValidUser(incoming());
+    }
+
+    match /foodTrucks/{truckId} {
+      allow get: if true; // Public view
+      allow list: if true; // Public view
+      allow create: if isAdmin();
+      allow update: if isAdmin() || (
+                       isSignedIn() && 
+                       existing().ownerId == request.auth.uid &&
+                       incoming().diff(existing()).affectedKeys().hasOnly(['status', 'description', 'photoUrl'])
+                     );
+      allow delete: if isAdmin();
+    }
+
+    match /bookings/{bookingId} {
+      allow get: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow list: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isSignedIn() && isValidBooking(incoming()) && 
+                      exists(/databases/$(database)/documents/foodTrucks/$(incoming().truckId));
+      allow update: if isSignedIn() && (
+                      (resource.data.userId == request.auth.uid && 
+                       incoming().diff(existing()).affectedKeys().hasOnly(['status']) &&
+                       incoming().status == 'cancelled') ||
+                      isAdmin()
+                    );
+    }
+  }
+}

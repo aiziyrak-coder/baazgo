@@ -1,0 +1,72 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "System user information",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "role": { "type": "string", "enum": ["user", "admin"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "email", "role", "createdAt"]
+    },
+    "FoodTruck": {
+      "title": "Food Truck",
+      "description": "Details of a food truck available for rent",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "photoUrl": { "type": "string" },
+        "pricePerDay": { "type": "number" },
+        "latitude": { "type": "number" },
+        "longitude": { "type": "number" },
+        "address": { "type": "string" },
+        "status": { "type": "string", "enum": ["available", "rented", "maintenance"] },
+        "ownerId": { "type": "string" },
+        "specs": {
+          "type": "object",
+          "properties": {
+            "dimensions": { "type": "string" },
+            "powerSource": { "type": "string" },
+            "equipment": { "type": "array", "items": { "type": "string" } }
+          }
+        },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "pricePerDay", "latitude", "longitude", "status", "createdAt"]
+    },
+    "Booking": {
+      "title": "Booking",
+      "description": "Booking record for a food truck",
+      "type": "object",
+      "properties": {
+        "truckId": { "type": "string" },
+        "userId": { "type": "string" },
+        "startDate": { "type": "string", "format": "date-time" },
+        "endDate": { "type": "string", "format": "date-time" },
+        "totalPrice": { "type": "number" },
+        "status": { "type": "string", "enum": ["pending", "confirmed", "cancelled", "completed"] },
+        "paymentStatus": { "type": "string", "enum": ["unpaid", "paid"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["truckId", "userId", "startDate", "endDate", "totalPrice", "status", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profiles"
+    },
+    "/foodTrucks/{truckId}": {
+      "schema": "FoodTruck",
+      "description": "Collection of available food trucks"
+    },
+    "/bookings/{bookingId}": {
+      "schema": "Booking",
+      "description": "Food truck bookings"
+    }
+  }
+}

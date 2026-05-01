@@ -1,0 +1,59 @@
+# Deploy to your VPS without touching other sites: only pulls this repo, builds,
+# restarts baazgo-api, reloads nginx after tests.
+#
+# GitHub → Repository → Settings → Secrets and variables → Actions, add:
+#   DEPLOY_HOST    (e.g. 167.71.53.238)
+#   DEPLOY_USER    (e.g. root)
+#   DEPLOY_SSH_KEY (private key that is authorized on the server)
+#   DEPLOY_PATH    optional, default /opt/baazgo/app
+
+name: Deploy BaazGo
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    env:
+      VITE_API_BASE_URL: https://baazgoapi.ziyrak.org
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install and build
+        run: |
+          npm ci
+          npm run lint
+          npm run build
+
+      - name: Deploy over SSH
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          script_stop: true
+          script: |
+            set -euo pipefail
+            APP="/opt/baazgo/app"
+            REPO="https://github.com/aiziyrak-coder/baazgo.git"
+            mkdir -p "$(dirname "$APP")"
+            if [ ! -d "$APP/.git" ]; then
+              git clone "$REPO" "$APP"
+            fi
+            cd "$APP"
+            git fetch origin
+            git checkout main
+            git reset --hard origin/main
+            npm ci
+            export VITE_API_BASE_URL="https://baazgoapi.ziyrak.org"
+            npm run build
+            sudo systemctl restart baazgo-api
+            sudo nginx -t
+            sudo systemctl reload nginx

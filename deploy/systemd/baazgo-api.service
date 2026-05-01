@@ -1,0 +1,19 @@
+[Unit]
+Description=BaazGo API (Express, API-only)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/baazgo/app
+EnvironmentFile=-/opt/baazgo/app/.env.api
+ExecStart=/opt/baazgo/app/node_modules/.bin/tsx server.ts
+Restart=on-failure
+RestartSec=5
+
+# Do not touch other services
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target
