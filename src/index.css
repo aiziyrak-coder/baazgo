@@ -193,3 +193,8 @@ body {
   background: linear-gradient(180deg, #334155, #0f172a);
 }
 
+/* OSM credit shown in app UI; hide default control (Leaflet + tile strip on map). */
+.leaflet-control-attribution {
+  display: none !important;
+}
+

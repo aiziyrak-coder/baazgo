@@ -489,21 +489,22 @@ export default function App() {
         </div>
       </header>
 
-      <main className="flex-1 relative flex overflow-hidden">
-        {/* Map Area */}
-        <div className="flex-1 relative z-0">
+      <main className="flex-1 relative flex overflow-hidden max-sm:pb-[calc(5.35rem+env(safe-area-inset-bottom,0px))]">
+        {/* Map Area — bottom padding on mobile so map/touches don't sit under tab bar */}
+        <div className="flex-1 relative z-0 min-h-0">
           <MapContainer 
             center={[41.2995, 69.2401]} 
             zoom={6} 
             className="w-full h-full"
             zoomControl={false}
+            attributionControl={false}
             maxBounds={[[37.0, 56.0], [46.0, 74.0]]}
             maxBoundsViscosity={1.0}
             minZoom={5}
           >
             <MapUpdater userLocation={userLocation} />
             <TileLayer
-              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+              attribution=""
               url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
             />
             <MarkerClusterGroup
@@ -535,6 +536,18 @@ export default function App() {
             </MarkerClusterGroup>
           </MapContainer>
 
+          <p className="pointer-events-none hidden sm:block absolute bottom-2 left-2 z-[450] max-w-[14rem] text-[9px] leading-snug text-slate-600/90 dark:text-slate-400">
+            ©{" "}
+            <a
+              href="https://www.openstreetmap.org/copyright"
+              target="_blank"
+              rel="noreferrer"
+              className="underline decoration-slate-400/60 pointer-events-auto"
+            >
+              OpenStreetMap
+            </a>
+          </p>
+
           <button 
             onClick={handleFindNearest}
             disabled={isLocating}
@@ -552,7 +565,7 @@ export default function App() {
                 animate={{ y: 0, opacity: 1, scale: 1 }}
                 exit={{ y: 200, opacity: 0, scale: 0.95 }}
                 transition={{ type: "spring", damping: 22, stiffness: 300 }}
-                className="absolute bottom-[84px] sm:bottom-6 left-0 right-0 mx-auto w-[92%] max-w-sm z-[1000] glass-card rounded-[20px] sm:rounded-[24px] p-3 sm:p-5 shadow-2xl border border-white/50"
+                className="absolute bottom-3 sm:bottom-6 left-0 right-0 mx-auto w-[92%] max-w-sm z-[1000] glass-card rounded-[20px] sm:rounded-[24px] p-3 sm:p-5 shadow-2xl border border-white/50 pointer-events-auto"
               >
                 <div className="flex gap-3 sm:gap-4">
                   <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl overflow-hidden shrink-0 shadow-sm border border-black/5 bg-slate-100">
@@ -1321,19 +1334,31 @@ export default function App() {
       </main>
 
       {/* Navigation for Mobile */}
-      <nav className="absolute bottom-0 left-0 right-0 w-full glass rounded-t-[24px] flex sm:hidden z-[1100] p-1 pb-4 shadow-[0_-10px_40px_rgba(0,0,0,0.08)] border-t border-white pb-[env(safe-area-inset-bottom)]">
-        <button className="flex-1 flex flex-col items-center justify-center pt-3 pb-2 text-[#007AFF] inline-block drop-shadow-md hover:bg-white/50 transition-colors rounded-2xl">
+      <nav className="absolute bottom-0 left-0 right-0 w-full glass rounded-t-[24px] flex flex-col sm:hidden z-[1200] shadow-[0_-10px_40px_rgba(0,0,0,0.08)] border-t border-white pb-[env(safe-area-inset-bottom)] pointer-events-auto">
+        <p className="px-2 pt-1.5 pb-0.5 text-center text-[8px] text-slate-400 leading-tight">
+          <a
+            href="https://www.openstreetmap.org/copyright"
+            target="_blank"
+            rel="noreferrer"
+            className="underline decoration-slate-300/80"
+          >
+            © OpenStreetMap
+          </a>
+        </p>
+        <div className="flex w-full p-1 pb-3">
+        <button type="button" className="flex-1 flex flex-col items-center justify-center pt-3 pb-2 text-[#007AFF] inline-block drop-shadow-md hover:bg-white/50 transition-colors rounded-2xl">
           <MapIcon className="w-6 h-6 mb-1" />
           <span className="text-[10px] font-medium">Asosiy</span>
         </button>
-        <button className="flex-1 flex flex-col items-center justify-center pt-3 pb-2 text-slate-500 font-medium hover:text-slate-900 hover:bg-white/50 transition-colors rounded-2xl" onClick={() => setIsSidebarOpen(true)}>
+        <button type="button" className="flex-1 flex flex-col items-center justify-center pt-3 pb-2 text-slate-500 font-medium hover:text-slate-900 hover:bg-white/50 transition-colors rounded-2xl" onClick={() => setIsSidebarOpen(true)}>
           <Calendar className="w-6 h-6 mb-1" />
           <span className="text-[10px] font-medium">Ijara</span>
         </button>
-        <button className="flex-1 flex flex-col items-center justify-center pt-3 pb-2 text-slate-500 font-medium hover:text-slate-900 hover:bg-white/50 transition-colors rounded-2xl" onClick={() => setIsSidebarOpen(true)}>
+        <button type="button" className="flex-1 flex flex-col items-center justify-center pt-3 pb-2 text-slate-500 font-medium hover:text-slate-900 hover:bg-white/50 transition-colors rounded-2xl" onClick={() => setIsSidebarOpen(true)}>
           <UserIcon className="w-6 h-6 mb-1" />
           <span className="text-[10px] font-medium">Profil</span>
         </button>
+        </div>
       </nav>
 
         {/* Mobile Search & Filters Overlay */}
