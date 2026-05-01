@@ -42,6 +42,21 @@ def run(client: paramiko.SSHClient, cmd: str, check: bool = True) -> tuple[str, 
     return out, err
 
 
+def run_bash_script(client: paramiko.SSHClient, script: str, check: bool = True) -> None:
+    script = script.replace("\r\n", "\n").lstrip("\ufeff")
+    stdin, stdout, stderr = client.exec_command("bash -s")
+    stdin.write(script.encode("utf-8"))
+    stdin.channel.shutdown_write()
+    code = stdout.channel.recv_exit_status()
+    out = stdout.read().decode(errors="replace")
+    err = stderr.read().decode(errors="replace")
+    print(out, end="")
+    if err:
+        print(err, end="", file=sys.stderr)
+    if check and code != 0:
+        raise SystemExit(code)
+
+
 def main() -> None:
     kp = key_path()
     if not kp.is_file():
@@ -85,7 +100,7 @@ nginx -t
 systemctl reload nginx
 systemctl restart baazgo-api || true
 """
-        run(client, f"bash -lc {repr(script)}")
+        run_bash_script(client, script)
         print("HTTPS rollout complete.")
     finally:
         client.close()
