@@ -7,6 +7,7 @@ Wants=network-online.target
 Type=simple
 User=root
 WorkingDirectory=/opt/baazgo/app
+# Leading "-" makes the file optional if missing
 EnvironmentFile=-/opt/baazgo/app/.env.api
 ExecStart=/opt/baazgo/app/node_modules/.bin/tsx server.ts
 Restart=on-failure
