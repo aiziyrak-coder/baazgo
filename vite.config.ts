@@ -10,6 +10,30 @@ export default defineConfig(({mode}) => {
     define: {
       'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY),
     },
+    build: {
+      rollupOptions: {
+        output: {
+          manualChunks(id) {
+            if (id.includes('node_modules/react-dom') || id.includes('node_modules/react/')) {
+              return 'react-vendor';
+            }
+            if (id.includes('node_modules/leaflet') || id.includes('node_modules/react-leaflet')) {
+              return 'leaflet';
+            }
+            if (id.includes('node_modules/recharts')) {
+              return 'recharts';
+            }
+            if (id.includes('node_modules/firebase')) {
+              return 'firebase';
+            }
+            if (id.includes('node_modules/motion')) {
+              return 'motion';
+            }
+          },
+        },
+      },
+      chunkSizeWarningLimit: 700,
+    },
     resolve: {
       alias: {
         '@': path.resolve(__dirname, '.'),

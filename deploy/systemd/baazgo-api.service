@@ -10,11 +10,13 @@ WorkingDirectory=/opt/baazgo/app
 # Leading "-" makes the file optional if missing
 EnvironmentFile=-/opt/baazgo/app/.env.api
 ExecStart=/opt/baazgo/app/node_modules/.bin/tsx server.ts
-Restart=on-failure
+Restart=always
 RestartSec=5
+TimeoutStopSec=20
 
-# Do not touch other services
+PrivateTmp=yes
 NoNewPrivileges=true
+LimitNOFILE=65535
 
 [Install]
 WantedBy=multi-user.target
