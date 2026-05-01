@@ -1,79 +1,32 @@
 import { FoodTruck } from "../types";
 
-/** Curated Unsplash food-truck / street-food imagery (hotlink-friendly params). */
-const TRUCK_IMAGES: Record<
-  NonNullable<FoodTruck["category"]>,
-  readonly string[]
-> = {
-  fastfood: [
-    "https://images.unsplash.com/photo-1565123409695-7b5ef63a2efb?auto=format&fit=crop&w=1200&q=80",
-    "https://images.unsplash.com/photo-1552332386-f8dd00dc2f85?auto=format&fit=crop&w=1200&q=80",
-    "https://images.unsplash.com/photo-1573080496219-bb080dd4f877?auto=format&fit=crop&w=1200&q=80",
-    "https://images.unsplash.com/photo-1590846406792-bac6ffeab112?auto=format&fit=crop&w=1200&q=80",
-    "https://images.unsplash.com/photo-1466978913421-dad2ebd01d17?auto=format&fit=crop&w=1200&q=80",
-    "https://images.unsplash.com/photo-1529193591184-b1d58069ecdd?auto=format&fit=crop&w=1200&q=80",
-    "https://images.unsplash.com/photo-1555396273-367ea4eb4db5?auto=format&fit=crop&w=1200&q=80",
-    "https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=1200&q=80",
-  ],
-  coffee: [
-    "https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?auto=format&fit=crop&w=1200&q=80",
-    "https://images.unsplash.com/photo-1509042239860-f550ce710b93?auto=format&fit=crop&w=1200&q=80",
-    "https://images.unsplash.com/photo-1442512595331-e89e73853f31?auto=format&fit=crop&w=1200&q=80",
-    "https://images.unsplash.com/photo-1511920170033-f8396924c348?auto=format&fit=crop&w=1200&q=80",
-    "https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?auto=format&fit=crop&w=1200&q=80",
-    "https://images.unsplash.com/photo-1498804103079-a6351b050096?auto=format&fit=crop&w=1200&q=80",
-    "https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?auto=format&fit=crop&w=1200&q=80",
-    "https://images.unsplash.com/photo-1461023058943-07fcbe16d735?auto=format&fit=crop&w=1200&q=80",
-  ],
-  bbq: [
-    "https://images.unsplash.com/photo-1555939594-58d7cb561ad1?auto=format&fit=crop&w=1200&q=80",
-    "https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=1200&q=80",
-    "https://images.unsplash.com/photo-1529193591184-b1d58069ecdd?auto=format&fit=crop&w=1200&q=80",
-    "https://images.unsplash.com/photo-1558030006-450675393462?auto=format&fit=crop&w=1200&q=80",
-    "https://images.unsplash.com/photo-1600891964092-4316c288032e?auto=format&fit=crop&w=1200&q=80",
-    "https://images.unsplash.com/photo-1594041680534-e8c8cdebd659?auto=format&fit=crop&w=1200&q=80",
-    "https://images.unsplash.com/photo-1528605248644-14dd04022da1?auto=format&fit=crop&w=1200&q=80",
-    "https://images.unsplash.com/photo-1551183053-bf91a1d81141?auto=format&fit=crop&w=1200&q=80",
-  ],
-  asian: [
-    "https://images.unsplash.com/photo-1569718212165-3a8278d5f624?auto=format&fit=crop&w=1200&q=80",
-    "https://images.unsplash.com/photo-1617093727343-374698b1b08d?auto=format&fit=crop&w=1200&q=80",
-    "https://images.unsplash.com/photo-1582878826629-29b7ad1cdc43?auto=format&fit=crop&w=1200&q=80",
-    "https://images.unsplash.com/photo-1555126634-323283e090fa?auto=format&fit=crop&w=1200&q=80",
-    "https://images.unsplash.com/photo-1498654896293-37aacf113fd9?auto=format&fit=crop&w=1200&q=80",
-    "https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=1200&q=80",
-    "https://images.unsplash.com/photo-1551218808-94e220e084d2?auto=format&fit=crop&w=1200&q=80",
-    "https://images.unsplash.com/photo-1585032226651-759b368d7246?auto=format&fit=crop&w=1200&q=80",
-  ],
-  dessert: [
-    "https://images.unsplash.com/photo-1560008581-09826d1653b4?auto=format&fit=crop&w=1200&q=80",
-    "https://images.unsplash.com/photo-1497033115244-830187150aba?auto=format&fit=crop&w=1200&q=80",
-    "https://images.unsplash.com/photo-1563805042-7684c019e1cb?auto=format&fit=crop&w=1200&q=80",
-    "https://images.unsplash.com/photo-1488477181946-6428a0291777?auto=format&fit=crop&w=1200&q=80",
-    "https://images.unsplash.com/photo-1519915028121-7d3463d20f13?auto=format&fit=crop&w=1200&q=80",
-    "https://images.unsplash.com/photo-1558961363-fa8fdf82db35?auto=format&fit=crop&w=1200&q=80",
-    "https://images.unsplash.com/photo-1578985545062-69928b1d9587?auto=format&fit=crop&w=1200&q=80",
-    "https://images.unsplash.com/photo-1464349095431-e9a21285b5f3?auto=format&fit=crop&w=1200&q=80",
-  ],
-  other: [
-    "https://images.unsplash.com/photo-1560611588-163f295eb145?auto=format&fit=crop&w=1200&q=80",
-    "https://images.unsplash.com/photo-1577219491135-ce391730fb2c?auto=format&fit=crop&w=1200&q=80",
-    "https://images.unsplash.com/photo-1414235077428-338989a841e3?auto=format&fit=crop&w=1200&q=80",
-    "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=1200&q=80",
-    "https://images.unsplash.com/photo-1552566626-52f8b828add9?auto=format&fit=crop&w=1200&q=80",
-    "https://images.unsplash.com/photo-1559339352-11d035aa65de?auto=format&fit=crop&w=1200&q=80",
-    "https://images.unsplash.com/photo-1551218808-94e220e084d2?auto=format&fit=crop&w=1200&q=80",
-    "https://images.unsplash.com/photo-1590846406792-bac6ffeab112?auto=format&fit=crop&w=1200&q=80",
-  ],
-};
+/**
+ * Food-truck / catering vehicle exteriors only (no taom, kofe stoli, BBQ taxtasi).
+ * Barcha kategoriyalar uchun bir xil pool — karta rasmi doim furgon/kiosk ko‘rinishida.
+ */
+const u = (id: string) =>
+  `https://images.unsplash.com/photo-${id}?auto=format&fit=crop&w=1200&q=80`;
+
+const UNSPLASH_FOOD_TRUCK_EXTERIORS: readonly string[] = [
+  u("1565123409695-7b5ef63a2efb"),
+  u("1552332386-f8dd00dc2f85"),
+  u("1466978913421-dad2ebd01d17"),
+  u("1559339352-11d035aa65de"),
+  u("1551218808-94e220e084d2"),
+  u("1625246333195-78d9c38ad449"),
+  u("1615873968403-89e068629265"),
+  u("1573080496219-bb080dd4f877"),
+  u("1558030006-450675393462"),
+];
 
 function pickTruckPhotos(
   category: NonNullable<FoodTruck["category"]>,
   seed: number,
 ): { photoUrl: string; gallery: string[] } {
-  const pool = [...TRUCK_IMAGES[category]];
+  const pool = UNSPLASH_FOOD_TRUCK_EXTERIORS;
   const n = pool.length;
-  const i = ((seed * 2654435761) >>> 0) % n;
+  const catBump = [...category].reduce((a, ch) => a + ch.charCodeAt(0), 0);
+  const i = ((seed * 2654435761 + catBump) >>> 0) % n;
   const main = pool[i];
   const gallery = [1, 2, 3].map((k) => pool[(i + k) % n]);
   return { photoUrl: main, gallery };
