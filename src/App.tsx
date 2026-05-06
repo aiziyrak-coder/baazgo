@@ -3,7 +3,16 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useState, useEffect, useMemo, useRef, FormEvent } from 'react';
+import {
+  useState,
+  useEffect,
+  useMemo,
+  useRef,
+  FormEvent,
+  startTransition,
+  useCallback,
+  memo,
+} from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMap, useMapEvents } from 'react-leaflet';
 import MarkerClusterGroup from 'react-leaflet-cluster';
 import L from 'leaflet';
@@ -72,6 +81,25 @@ const MapUpdater = ({ userLocation }: { userLocation: {lat: number, lng: number}
   }, [userLocation, map]);
   return null;
 };
+
+/** Memoized marker — avoids reconciling 500+ markers when opening the preview card. */
+const TruckMapMarker = memo(function TruckMapMarker({
+  truck,
+  onSelect,
+}: {
+  truck: FoodTruck;
+  onSelect: (t: FoodTruck) => void;
+}) {
+  return (
+    <Marker
+      position={[truck.latitude, truck.longitude]}
+      icon={createCustomIcon(truck.status)}
+      eventHandlers={{
+        click: () => onSelect(truck),
+      }}
+    />
+  );
+});
 
 export default function App() {
   const { user, profile, loading: authLoading, signInWithPhone, registerWithPhone, logout, loginError } = useAuth();
@@ -167,7 +195,7 @@ export default function App() {
   
   useEffect(() => {
     // In a production app, we'd fetch trucks from Firestore instead of mock data
-    setTrucks(generateMockTrucks(1000));
+    setTrucks(generateMockTrucks(450));
   }, []);
 
   const [isMyBookingsOpen, setIsMyBookingsOpen] = useState(false);
@@ -203,7 +231,7 @@ export default function App() {
     loadBookings();
     
     // Quick polling for mock realtime feel
-    const interval = setInterval(loadBookings, 2000);
+    const interval = setInterval(loadBookings, 15000);
     return () => clearInterval(interval);
   }, [user, profile]);
 
@@ -271,6 +299,14 @@ export default function App() {
     
     return result;
   }, [trucks, searchQuery, filterStatus, priceRange, minRating, sortBy, activeCategory, userLocation]);
+
+  const selectTruck = useCallback((truck: FoodTruck) => {
+    startTransition(() => setSelectedTruck(truck));
+  }, []);
+
+  const clearSelectedTruck = useCallback(() => {
+    startTransition(() => setSelectedTruck(null));
+  }, []);
 
   const handleFindNearest = () => {
     if (!('geolocation' in navigator)) {
@@ -509,8 +545,11 @@ export default function App() {
             />
             <MarkerClusterGroup
               chunkedLoading
-              maxClusterRadius={50}
+              chunkInterval={120}
+              chunkDelay={30}
+              maxClusterRadius={56}
               showCoverageOnHover={false}
+              spiderfyOnMaxZoom
             >
               {userLocation && (
                 <Marker 
@@ -524,14 +563,7 @@ export default function App() {
                 />
               )}
               {filteredTrucks.map((truck) => (
-                <Marker 
-                  key={truck.id} 
-                  position={[truck.latitude, truck.longitude]}
-                  icon={createCustomIcon(truck.status)}
-                  eventHandlers={{
-                    click: () => setSelectedTruck(truck),
-                  }}
-                />
+                <TruckMapMarker key={truck.id} truck={truck} onSelect={selectTruck} />
               ))}
             </MarkerClusterGroup>
           </MapContainer>
@@ -561,11 +593,11 @@ export default function App() {
           <AnimatePresence>
             {selectedTruck && (
               <motion.div 
-                initial={{ y: 200, opacity: 0, scale: 0.95 }}
-                animate={{ y: 0, opacity: 1, scale: 1 }}
-                exit={{ y: 200, opacity: 0, scale: 0.95 }}
-                transition={{ type: "spring", damping: 22, stiffness: 300 }}
-                className="absolute bottom-3 sm:bottom-6 left-0 right-0 mx-auto w-[92%] max-w-sm z-[1000] glass-card rounded-[20px] sm:rounded-[24px] p-3 sm:p-5 shadow-2xl border border-white/50 pointer-events-auto"
+                initial={{ y: 28, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                exit={{ y: 20, opacity: 0 }}
+                transition={{ duration: 0.2, ease: [0.25, 0.1, 0.25, 1] }}
+                className="absolute bottom-3 sm:bottom-6 left-0 right-0 mx-auto w-[92%] max-w-sm z-[1000] glass-card rounded-[20px] sm:rounded-[24px] p-3 sm:p-5 shadow-2xl border border-white/50 pointer-events-auto contain-layout"
               >
                 <div className="flex gap-3 sm:gap-4">
                   <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl overflow-hidden shrink-0 shadow-sm border border-black/5 bg-slate-100">
@@ -574,6 +606,8 @@ export default function App() {
                       alt={selectedTruck.name} 
                       className="w-full h-full object-cover"
                       referrerPolicy="no-referrer"
+                      decoding="async"
+                      fetchPriority="high"
                     />
                   </div>
                   <div className="flex-1 overflow-hidden pt-1">
@@ -586,7 +620,7 @@ export default function App() {
                         >
                           <Heart className={cn("w-4 h-4 transition-colors", favorites.includes(selectedTruck.id) ? "fill-[#FF3B30] text-[#FF3B30]" : "")} />
                         </button>
-                        <button onClick={() => setSelectedTruck(null)} className="text-slate-900   font-medium hover:text-slate-900  bg-black/5 rounded-full p-1.5 transition-colors">
+                        <button type="button" onClick={clearSelectedTruck} className="text-slate-900   font-medium hover:text-slate-900  bg-black/5 rounded-full p-1.5 transition-colors">
                           <X className="w-4 h-4" />
                         </button>
                       </div>
@@ -1557,7 +1591,7 @@ export default function App() {
                        <button 
                          key={truck.id}
                          onClick={() => {
-                           setSelectedTruck(truck);
+                           selectTruck(truck);
                            setIsMobileSearchOpen(false);
                          }}
                          className="w-full bg-white rounded-[20px] p-3 flex gap-4 shadow-sm border border-black/5 text-left active:scale-[0.98] transition-all hover:shadow-md group"
@@ -1630,7 +1664,7 @@ export default function App() {
                        <button 
                          key={truck.id}
                          onClick={() => {
-                           setSelectedTruck(truck);
+                           selectTruck(truck);
                            setIsFavoritesOpen(false);
                          }}
                          className="w-full bg-white  rounded-[20px] p-3 flex gap-4 shadow-sm border border-black/5  text-left active:scale-[0.98] transition-all hover:shadow-md group"
