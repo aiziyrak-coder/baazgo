@@ -7,3 +7,5 @@ coverage/
 .env*
 !.env.example
 .deploy/
+data/*.json
+!data/.gitkeep

@@ -17,22 +17,52 @@ import { MapContainer, TileLayer, Marker, Popup, useMap, useMapEvents } from 're
 import MarkerClusterGroup from 'react-leaflet-cluster';
 import L from 'leaflet';
 import { motion, AnimatePresence } from 'motion/react';
-import { 
-  Menu, Search, Map as MapIcon, 
-  CreditCard, Calendar, Truck, 
-  User as UserIcon, X, Info, 
-  CheckCircle2, AlertCircle, ChevronRight, LogOut, Loader2, Heart, Star, Camera, Plus, MapPin, Filter, Users, Bell, BadgeCheck
+import { Link } from 'react-router-dom';
+import {
+  Menu,
+  Search,
+  Map as MapIcon,
+  CreditCard,
+  Calendar,
+  Truck,
+  User as UserIcon,
+  X,
+  Info,
+  CheckCircle2,
+  AlertCircle,
+  ChevronRight,
+  LogOut,
+  Loader2,
+  Heart,
+  Star,
+  Camera,
+  Plus,
+  MapPin,
+  Filter,
+  Users,
+  Bell,
+  BadgeCheck,
+  Moon,
+  Sun,
+  FileText,
+  Shield,
+  Building2,
+  ListTree,
 } from 'lucide-react';
 import { Toaster, toast } from 'react-hot-toast';
 import { useAuth, handleFirestoreError } from './hooks/useAuth';
 import { FoodTruck, Booking, OperationType, SiteNotification } from './types';
 import { generateMockTrucks } from './lib/mockData';
+import {
+  fetchTrucksFromApi,
+  fetchBookingsForUser,
+  createBookingOnApi,
+} from './lib/api/platformApi';
 import { cn, formatCurrency } from './lib/utils';
 import { useDarkMode } from './lib/useDarkMode';
 import { useIsNarrowViewport } from './hooks/useIsNarrowViewport';
 import { AdminDashboard } from './components/AdminDashboard';
 import { MyBookingsPage } from './components/MyBookingsPage';
-import { Moon, Sun } from 'lucide-react';
 
 // Custom Map Marker Icons (Cached)
 const createMapIcon = (color: string) => L.divIcon({
@@ -225,31 +255,55 @@ export default function App() {
   };
   
   useEffect(() => {
-    // Fewer markers on phones/tablets — DOM + clustering stays responsive on mobile GPUs.
+    let cancelled = false;
     const count = isNarrowViewport ? 140 : 450;
-    setTrucks(generateMockTrucks(count));
+    (async () => {
+      const remote = await fetchTrucksFromApi(count);
+      if (cancelled) return;
+      if (remote?.length) {
+        setTrucks(remote);
+        return;
+      }
+      setTrucks(generateMockTrucks(count));
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [isNarrowViewport]);
 
   const [isMyBookingsOpen, setIsMyBookingsOpen] = useState(false);
 
-  const loadBookings = () => {
+  const loadBookings = useCallback(async () => {
     if (!user) return;
+    let merged: Booking[] = [];
     const stored = localStorage.getItem('baazgo_bookings');
     if (stored) {
       try {
-        const bks = JSON.parse(stored) as Booking[];
-        const userBks = bks.filter(b => b.userId === user.uid);
-        const sortedUserBks = userBks.sort((a,b) => new Date(b.createdAt as string).getTime() - new Date(a.createdAt as string).getTime());
-        setUserBookings(sortedUserBks);
-        
-        if (profile?.role === 'admin') {
-          setAllBookings(bks);
-        }
-      } catch (e) {
-        console.error(e);
+        merged = JSON.parse(stored) as Booking[];
+      } catch {
+        merged = [];
       }
     }
-  };
+    const remote = await fetchBookingsForUser(user.uid);
+    if (remote && remote.length > 0) {
+      const byId = new Map<string, Booking>();
+      for (const b of merged) byId.set(b.id, b);
+      for (const b of remote) byId.set(b.id, b);
+      merged = Array.from(byId.values());
+      localStorage.setItem('baazgo_bookings', JSON.stringify(merged));
+    }
+    const userBks = merged
+      .filter((b) => b.userId === user.uid)
+      .sort(
+        (a, b) =>
+          new Date(b.createdAt as string).getTime() -
+          new Date(a.createdAt as string).getTime(),
+      );
+    setUserBookings(userBks);
+    if (profile?.role === 'admin') {
+      setAllBookings(merged);
+    }
+  }, [user, profile]);
 
   useEffect(() => {
     if (!user) {
@@ -260,12 +314,10 @@ export default function App() {
       return;
     }
 
-    loadBookings();
-    
-    // Quick polling for mock realtime feel
-    const interval = setInterval(loadBookings, 15000);
+    void loadBookings();
+    const interval = setInterval(() => void loadBookings(), 15000);
     return () => clearInterval(interval);
-  }, [user, profile]);
+  }, [user, profile, loadBookings]);
 
   const handleAuthSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -384,38 +436,64 @@ export default function App() {
     setIsBooking(true);
     try {
       const stored = localStorage.getItem('baazgo_bookings');
-      const bks = stored ? JSON.parse(stored) : [];
-      
+      const bks: Booking[] = stored ? JSON.parse(stored) : [];
+
       const start = new Date(bookingStartDate);
       const end = new Date(bookingEndDate);
-      const days = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
-      
+      const days = Math.ceil(
+        (end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24),
+      );
+
       let basePrice = selectedTruck.pricePerDay * Math.max(1, days);
-      if (days >= 14) basePrice = basePrice * 0.9; // 10% logic dynamic
+      if (days >= 14) basePrice = basePrice * 0.9;
       const finalPrice = basePrice * (1 - discountPercent / 100);
 
-      const newBooking = {
-        id: 'booking-' + Date.now(),
+      const newBooking: Booking = {
+        id: "booking-" + Date.now(),
         truckId: selectedTruck.id,
         userId: user.uid,
         startDate: start.toISOString(),
         endDate: end.toISOString(),
         totalPrice: finalPrice,
-        status: 'pending',
-        paymentStatus: 'unpaid',
-        createdAt: new Date().toISOString()
+        status: "pending",
+        paymentStatus: "unpaid",
+        createdAt: new Date().toISOString(),
       };
-      
-      bks.push(newBooking);
-      localStorage.setItem('baazgo_bookings', JSON.stringify(bks));
 
-      setTrucks(prev => prev.map(t => t.id === selectedTruck.id ? { ...t, status: 'rented' } : t));
-      loadBookings();
+      const apiResult = await createBookingOnApi(newBooking);
+      if (apiResult.conflict) {
+        toast.error(
+          "Bu sanalar uchun furgon allaqachon band. Boshqa muddat tanlang.",
+        );
+        return;
+      }
 
-      alert("Bron muvaffaqiyatli amalga oshirildi!\n\nKeyingi qadamlar:\n1. Avtomobil kalitini filialimizdan olib keting.\n2. Yoki administrator aloqaga chiqishini kuting.");
+      const final = apiResult.booking ?? newBooking;
+      const idx = bks.findIndex((x) => x.id === final.id);
+      if (idx >= 0) bks[idx] = final;
+      else bks.push(final);
+      localStorage.setItem("baazgo_bookings", JSON.stringify(bks));
+
+      if (!apiResult.ok) {
+        toast(
+          "Serverga ulanib bo‘lmadi — bron qurilmangizda saqlandi; keyinroq sinxronlanadi.",
+          { icon: "⚠️", duration: 4500 },
+        );
+      }
+
+      setTrucks((prev) =>
+        prev.map((t) =>
+          t.id === selectedTruck.id ? { ...t, status: "rented" } : t,
+        ),
+      );
+      void loadBookings();
+
+      alert(
+        "Bron muvaffaqiyatli amalga oshirildi!\n\nKeyingi qadamlar:\n1. Avtomobil kalitini filialimizdan olib keting.\n2. Yoki administrator aloqaga chiqishini kuting.",
+      );
       setIsBookingModalOpen(false);
-    } catch (error) {
-       // Handled
+    } catch {
+      toast.error("Bronni saqlashda xatolik");
     } finally {
       setIsBooking(false);
     }
@@ -873,7 +951,7 @@ export default function App() {
                                 navigator.clipboard.writeText("https://baazgo.uz/invite/" + user.uid);
                                 toast.success("Taklif havolasi nusxalandi!");
                               }}
-                              className="w-full flex items-center justify-between p-4 hover:bg-black/5  transition-colors"
+                              className="w-full flex items-center justify-between p-4 hover:bg-black/5  transition-colors border-b border-black/5"
                             >
                                <div className="flex items-center gap-3">
                                  <div className="w-8 h-8 rounded-full bg-[#34C759]/10 flex items-center justify-center">
@@ -883,6 +961,58 @@ export default function App() {
                                </div>
                                <ChevronRight className="w-4 h-4 text-slate-900 " />
                             </button>
+                            <Link
+                              to="/terms"
+                              onClick={() => setIsSidebarOpen(false)}
+                              className="w-full flex items-center justify-between p-4 hover:bg-black/5 transition-colors border-b border-black/5"
+                            >
+                              <div className="flex items-center gap-3">
+                                <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center">
+                                  <FileText className="w-4 h-4 text-[#0f172a]" />
+                                </div>
+                                <span className="font-medium text-[15px] tracking-tight">Foydalanish shartlari</span>
+                              </div>
+                              <ChevronRight className="w-4 h-4 text-slate-900" />
+                            </Link>
+                            <Link
+                              to="/privacy"
+                              onClick={() => setIsSidebarOpen(false)}
+                              className="w-full flex items-center justify-between p-4 hover:bg-black/5 transition-colors border-b border-black/5"
+                            >
+                              <div className="flex items-center gap-3">
+                                <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center">
+                                  <Shield className="w-4 h-4 text-[#0f172a]" />
+                                </div>
+                                <span className="font-medium text-[15px] tracking-tight">Maxfiylik siyosati</span>
+                              </div>
+                              <ChevronRight className="w-4 h-4 text-slate-900" />
+                            </Link>
+                            <Link
+                              to="/owner"
+                              onClick={() => setIsSidebarOpen(false)}
+                              className="w-full flex items-center justify-between p-4 hover:bg-black/5 transition-colors border-b border-black/5"
+                            >
+                              <div className="flex items-center gap-3">
+                                <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center">
+                                  <Building2 className="w-4 h-4 text-[#0f172a]" />
+                                </div>
+                                <span className="font-medium text-[15px] tracking-tight">Furgon egasi</span>
+                              </div>
+                              <ChevronRight className="w-4 h-4 text-slate-900" />
+                            </Link>
+                            <Link
+                              to="/platform"
+                              onClick={() => setIsSidebarOpen(false)}
+                              className="w-full flex items-center justify-between p-4 hover:bg-black/5 transition-colors"
+                            >
+                              <div className="flex items-center gap-3">
+                                <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center">
+                                  <ListTree className="w-4 h-4 text-[#0f172a]" />
+                                </div>
+                                <span className="font-medium text-[15px] tracking-tight">Platforma rejasi</span>
+                              </div>
+                              <ChevronRight className="w-4 h-4 text-slate-900" />
+                            </Link>
                           </div>
                        </div>
 

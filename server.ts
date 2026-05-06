@@ -6,6 +6,7 @@ import helmet from "helmet";
 import { createServer as createViteServer } from "vite";
 import path from "path";
 import { fileURLToPath } from "url";
+import { registerApiV1 } from "./server/apiV1";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -62,8 +63,14 @@ async function startServer() {
   app.use(express.json({ limit: "256kb" }));
 
   app.get("/api/health", (_req, res) => {
-    res.json({ status: "ok", time: new Date().toISOString() });
+    res.json({
+      status: "ok",
+      service: "baazgo",
+      time: new Date().toISOString(),
+    });
   });
+
+  registerApiV1(app);
 
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
