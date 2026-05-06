@@ -83,6 +83,35 @@ const MapUpdater = ({ userLocation }: { userLocation: {lat: number, lng: number}
   return null;
 };
 
+/** iOS Safari: flex + dvh often leaves Leaflet with a tiny box until invalidateSize runs. */
+function LeafletResizeBridge() {
+  const map = useMap();
+  useEffect(() => {
+    const fix = () => {
+      map.invalidateSize({ animate: false });
+    };
+    fix();
+    const raf = requestAnimationFrame(fix);
+    const t1 = window.setTimeout(fix, 50);
+    const t2 = window.setTimeout(fix, 300);
+    const onVis = () => {
+      if (document.visibilityState === 'visible') fix();
+    };
+    window.addEventListener('resize', fix);
+    window.addEventListener('orientationchange', fix);
+    document.addEventListener('visibilitychange', onVis);
+    return () => {
+      cancelAnimationFrame(raf);
+      window.clearTimeout(t1);
+      window.clearTimeout(t2);
+      window.removeEventListener('resize', fix);
+      window.removeEventListener('orientationchange', fix);
+      document.removeEventListener('visibilitychange', onVis);
+    };
+  }, [map]);
+  return null;
+}
+
 /** Memoized marker — avoids reconciling hundreds of markers when opening the preview card. */
 const TruckMapMarker = memo(function TruckMapMarker({
   truck,
@@ -400,7 +429,7 @@ export default function App() {
   );
 
   return (
-    <div className="h-[100dvh] w-screen overflow-hidden flex flex-col bg-[#F2F2F7] relative">
+    <div className="relative flex h-[100dvh] min-h-0 w-screen flex-col overflow-hidden bg-[#F2F2F7]">
       <Toaster />
       {/* Header */}
       <header className="absolute top-0 left-0 right-0 h-[64px] sm:h-20 pt-[env(safe-area-inset-top)] glass z-[1100] flex items-center justify-between px-4 sm:px-4 border-b border-black/5">
@@ -528,19 +557,20 @@ export default function App() {
         </div>
       </header>
 
-      <main className="flex-1 relative flex overflow-hidden max-sm:pb-[calc(5.35rem+env(safe-area-inset-bottom,0px))]">
-        {/* Map Area — bottom padding on mobile so map/touches don't sit under tab bar */}
-        <div className="flex-1 relative z-0 min-h-0">
+      <main className="relative flex min-h-0 flex-1 flex-col overflow-hidden max-sm:pb-[calc(5.35rem+env(safe-area-inset-bottom,0px))]">
+        {/* Map Area — flex-col + min-h-0 fixes iOS height; inset fills main so Leaflet gets real dimensions */}
+        <div className="absolute inset-0 z-0 min-h-0">
           <MapContainer 
             center={[41.2995, 69.2401]} 
             zoom={6} 
-            className="w-full h-full"
+            className="map-root h-full w-full"
             zoomControl={false}
             attributionControl={false}
             maxBounds={[[37.0, 56.0], [46.0, 74.0]]}
             maxBoundsViscosity={1.0}
             minZoom={5}
           >
+            <LeafletResizeBridge />
             <MapUpdater userLocation={userLocation} />
             <TileLayer
               attribution=""

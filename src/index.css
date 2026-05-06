@@ -27,6 +27,25 @@
   --primary-foreground: #ffffff;
 }
 
+/* iOS Safari: fill screen reliably so nested flex + Leaflet % heights resolve */
+html {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  min-height: 100%;
+  min-height: -webkit-fill-available;
+}
+
+#root {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+  min-height: 100dvh;
+  min-height: -webkit-fill-available;
+}
+
 :root.dark {
   --background: #000000;
   --foreground: #ffffff;
@@ -226,7 +245,13 @@ body {
 .leaflet-container {
   width: 100%;
   height: 100%;
+  min-height: 100%;
   z-index: 1;
+}
+
+.map-root.leaflet-container {
+  min-height: 100%;
+  isolation: isolate;
 }
 
 /* Hide leaflet controls generally for cleaner UI */
