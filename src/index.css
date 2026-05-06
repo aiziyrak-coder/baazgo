@@ -38,8 +38,42 @@
   100% { opacity: 1; transform: scale(1) translateY(0); }
 }
 
+/* Phones/tablets: shorter pop-in — keeps motion without long springs on many markers */
+@keyframes marker-pop-touch {
+  from {
+    opacity: 0.72;
+    transform: scale(0.88);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
 .animate-marker {
   animation: marker-appear 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+@keyframes user-loc-pulse {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.88;
+    transform: scale(1.07);
+  }
+}
+
+.user-loc-dot {
+  animation: user-loc-pulse 2.2s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .user-loc-dot {
+    animation: none;
+  }
 }
 
 body {
@@ -180,25 +214,12 @@ body {
   }
 
   .animate-marker {
-    animation: none !important;
+    animation: marker-pop-touch 0.32s ease-out forwards;
   }
 
   .leaflet-control-zoom a {
     backdrop-filter: none !important;
     background: rgba(255, 255, 255, 0.96) !important;
-  }
-
-  /* Tailwind backdrop-blur utilities stack costly filters over the map — strip on touch devices. */
-  .backdrop-blur-none,
-  .backdrop-blur-sm,
-  .backdrop-blur,
-  .backdrop-blur-md,
-  .backdrop-blur-lg,
-  .backdrop-blur-xl,
-  .backdrop-blur-2xl,
-  .backdrop-blur-3xl {
-    backdrop-filter: none !important;
-    -webkit-backdrop-filter: none !important;
   }
 }
 
@@ -237,9 +258,20 @@ body {
   color: white !important;
 }
 
-/* Map Marker Animation - removed as it overrides Leaflet transforms */
+/* Let Leaflet position transforms win; keep opacity fades cheap */
 .leaflet-marker-icon {
-  transition: opacity 0.3s ease;
+  transition: opacity 0.25s ease;
+}
+
+.leaflet-marker-icon svg {
+  display: block;
+  vertical-align: middle;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-marker {
+    animation: none !important;
+  }
 }
 
 /* Thin Neon Scrollbar */

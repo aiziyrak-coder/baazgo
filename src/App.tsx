@@ -73,32 +73,6 @@ const createCustomIcon = (status: string) => {
   return iconRented;
 };
 
-/** Lightweight div markers for phones/tablets (no SVG) — much cheaper to paint per frame. */
-const simpleIconAvailable = L.divIcon({
-  className: 'bg-transparent border-none',
-  html: '<div style="width:18px;height:18px;background:#34C759;border-radius:50%;border:2.5px solid #fff;box-shadow:0 1px 5px rgba(0,0,0,.28)"></div>',
-  iconSize: [18, 18],
-  iconAnchor: [9, 9],
-});
-const simpleIconFinishing = L.divIcon({
-  className: 'bg-transparent border-none',
-  html: '<div style="width:18px;height:18px;background:#FF9500;border-radius:50%;border:2.5px solid #fff;box-shadow:0 1px 5px rgba(0,0,0,.28)"></div>',
-  iconSize: [18, 18],
-  iconAnchor: [9, 9],
-});
-const simpleIconRented = L.divIcon({
-  className: 'bg-transparent border-none',
-  html: '<div style="width:18px;height:18px;background:#FF3B30;border-radius:50%;border:2.5px solid #fff;box-shadow:0 1px 5px rgba(0,0,0,.28)"></div>',
-  iconSize: [18, 18],
-  iconAnchor: [9, 9],
-});
-
-const createSimpleCustomIcon = (status: string) => {
-  if (status === 'available') return simpleIconAvailable;
-  if (status === 'finishing_soon') return simpleIconFinishing;
-  return simpleIconRented;
-};
-
 const MapUpdater = ({ userLocation }: { userLocation: {lat: number, lng: number} | null }) => {
   const map = useMap();
   useEffect(() => {
@@ -113,17 +87,14 @@ const MapUpdater = ({ userLocation }: { userLocation: {lat: number, lng: number}
 const TruckMapMarker = memo(function TruckMapMarker({
   truck,
   onSelect,
-  simpleIcon,
 }: {
   truck: FoodTruck;
   onSelect: (t: FoodTruck) => void;
-  simpleIcon: boolean;
 }) {
-  const icon = simpleIcon ? createSimpleCustomIcon(truck.status) : createCustomIcon(truck.status);
   return (
     <Marker
       position={[truck.latitude, truck.longitude]}
-      icon={icon}
+      icon={createCustomIcon(truck.status)}
       eventHandlers={{
         click: () => onSelect(truck),
       }}
@@ -569,8 +540,6 @@ export default function App() {
             maxBounds={[[37.0, 56.0], [46.0, 74.0]]}
             maxBoundsViscosity={1.0}
             minZoom={5}
-            zoomAnimation={!isNarrowViewport}
-            fadeAnimation={!isNarrowViewport}
           >
             <MapUpdater userLocation={userLocation} />
             <TileLayer
@@ -585,28 +554,21 @@ export default function App() {
               maxClusterRadius={isNarrowViewport ? 78 : 56}
               showCoverageOnHover={false}
               spiderfyOnMaxZoom
-              animate={!isNarrowViewport}
             >
               {userLocation && (
                 <Marker 
                   position={[userLocation.lat, userLocation.lng]}
                   icon={L.divIcon({
                     className: 'bg-transparent border-none',
-                    html: isNarrowViewport
-                      ? `<div style="width:12px;height:12px;background:#007AFF;border-radius:50%;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.25)"></div>`
-                      : `<div class="w-4 h-4 bg-[#007AFF] rounded-full border-2 border-white shadow-md animate-pulse"></div>`,
-                    iconSize: isNarrowViewport ? [12, 12] : [20, 20],
-                    iconAnchor: isNarrowViewport ? [6, 6] : [10, 10],
+                    html:
+                      `<div class="user-loc-dot" style="width:${isNarrowViewport ? 14 : 16}px;height:${isNarrowViewport ? 14 : 16}px;background:#007AFF;border-radius:50%;border:2px solid #fff;box-shadow:0 1px 6px rgba(0,0,0,.28);"></div>`,
+                    iconSize: isNarrowViewport ? [14, 14] : [16, 16],
+                    iconAnchor: isNarrowViewport ? [7, 7] : [8, 8],
                   })}
                 />
               )}
               {filteredTrucks.map((truck) => (
-                <TruckMapMarker
-                  key={truck.id}
-                  truck={truck}
-                  onSelect={selectTruck}
-                  simpleIcon={isNarrowViewport}
-                />
+                <TruckMapMarker key={truck.id} truck={truck} onSelect={selectTruck} />
               ))}
             </MarkerClusterGroup>
           </MapContainer>
@@ -640,7 +602,7 @@ export default function App() {
                 animate={{ y: 0, opacity: 1 }}
                 exit={{ y: 20, opacity: 0 }}
                 transition={{ duration: 0.2, ease: [0.25, 0.1, 0.25, 1] }}
-                className="absolute bottom-3 sm:bottom-6 left-0 right-0 mx-auto w-[92%] max-w-sm z-[1000] glass-card rounded-[20px] sm:rounded-[24px] p-3 sm:p-5 shadow-2xl border border-white/50 pointer-events-auto contain-layout"
+                className="absolute bottom-3 sm:bottom-6 left-0 right-0 mx-auto w-[92%] max-w-sm z-[1000] glass-card rounded-[20px] sm:rounded-[24px] p-3 sm:p-5 shadow-2xl border border-white/50 pointer-events-auto"
               >
                 <div className="flex gap-3 sm:gap-4">
                   <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl overflow-hidden shrink-0 shadow-sm border border-black/5 bg-slate-100">
