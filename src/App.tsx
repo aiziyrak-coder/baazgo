@@ -51,7 +51,9 @@ import {
 } from 'lucide-react';
 import { Toaster, toast } from 'react-hot-toast';
 import { useAuth, handleFirestoreError } from './hooks/useAuth';
-import { FoodTruck, Booking, OperationType, SiteNotification } from './types';
+import { FoodTruck, Booking, OperationType, SiteNotification, UserProfile } from './types';
+import { loadStoredNotifications, persistNotifications } from './lib/notificationsStorage';
+import { loadFavoriteIds, persistFavoriteIds } from './lib/favoritesStorage';
 import { generateMockTrucks } from './lib/mockData';
 import {
   fetchTrucksFromApi,
@@ -175,24 +177,9 @@ export default function App() {
   const [isSupportOpen, setIsSupportOpen] = useState(false);
   const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  const [notifications, setNotifications] = useState<SiteNotification[]>([
-    {
-      id: 'notif-1',
-      title: "Xush kelibsiz!",
-      message: "BaazGo uz ilovasiga xush kelibsiz. Eng yaxshi furgonlarni bron qiling.",
-      read: false,
-      type: 'success',
-      createdAt: new Date().toISOString()
-    },
-    {
-      id: 'notif-2',
-      title: "Yangi imkoniyatlar",
-      message: "Endi 14 kunlik bronlar uchun 10% chegirma beriladi.",
-      read: false,
-      type: 'info',
-      createdAt: new Date(Date.now() - 86400000).toISOString()
-    }
-  ]);
+  const [notifications, setNotifications] = useState<SiteNotification[]>(() =>
+    loadStoredNotifications(),
+  );
   const [isBooking, setIsBooking] = useState(false);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
@@ -203,7 +190,8 @@ export default function App() {
   const [isAuthenticating, setIsAuthenticating] = useState(false);
   const [isAdminViewOpen, setIsAdminViewOpen] = useState(false);
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
-  const [favorites, setFavorites] = useState<string[]>([]);
+  const [favorites, setFavorites] = useState<string[]>(() => loadFavoriteIds());
+  const [mobileTab, setMobileTab] = useState<"map" | "book" | "profile">("map");
   const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false);
   const [filterStatus, setFilterStatus] = useState<'all' | 'available' | 'rented' | 'finishing_soon'>('all');
   const [priceRange, setPriceRange] = useState<number>(3000000);
@@ -232,6 +220,25 @@ export default function App() {
     }
   }, []);
 
+  useEffect(() => {
+    persistNotifications(notifications);
+  }, [notifications]);
+
+  useEffect(() => {
+    persistFavoriteIds(favorites);
+  }, [favorites]);
+
+  const registeredUsersCount = useMemo(() => {
+    try {
+      const raw = localStorage.getItem("baazgo_all_users");
+      if (!raw) return 1;
+      const arr = JSON.parse(raw) as UserProfile[];
+      return Array.isArray(arr) ? arr.length : 1;
+    } catch {
+      return 1;
+    }
+  }, [user, profile, isSidebarOpen, isAuthModalOpen]);
+
   const notify = (title: string, body: string) => {
     if ('Notification' in window && Notification.permission === 'granted') {
       new Notification(title, { body });
@@ -252,6 +259,7 @@ export default function App() {
   const closeSidebar = () => {
     setIsSidebarOpen(false);
     setIsAdminViewOpen(false);
+    setMobileTab("map");
   };
   
   useEffect(() => {
@@ -392,6 +400,28 @@ export default function App() {
     startTransition(() => setSelectedTruck(null));
   }, []);
 
+  const goMobileMap = useCallback(() => {
+    setMobileTab("map");
+    setIsMobileSearchOpen(false);
+    setIsMyBookingsOpen(false);
+    startTransition(() => setSelectedTruck(null));
+  }, []);
+
+  const goMobileBookings = useCallback(() => {
+    setMobileTab("book");
+    if (!user) {
+      setIsAuthModalOpen(true);
+      toast("Bronlarni ko‘rish uchun avval kiring", { icon: "🔐" });
+      return;
+    }
+    setIsMyBookingsOpen(true);
+  }, [user]);
+
+  const goMobileProfile = useCallback(() => {
+    setMobileTab("profile");
+    setIsSidebarOpen(true);
+  }, []);
+
   const handleFindNearest = () => {
     if (!('geolocation' in navigator)) {
       toast.error('Geolokatsiya qo\'llab-quvvatlanmaydi.');
@@ -417,7 +447,8 @@ export default function App() {
 
   const handleBooking = async (truck: FoodTruck) => {
     if (!user) {
-      alert("Iltimos, avval ro'yxatdan o'ting");
+      toast.error("Iltimos, avval ro'yxatdan o'ting yoki kiring");
+      setIsAuthModalOpen(true);
       return;
     }
     const today = new Date();
@@ -431,15 +462,31 @@ export default function App() {
     setIsBookingModalOpen(true);
   };
 
-  const confirmBooking = async () => {
+  const confirmBooking = async (
+    paymentChannel?: "payme" | "click" | "cash",
+  ) => {
     if (!selectedTruck || !user) return;
+    if (!bookingStartDate || !bookingEndDate) {
+      toast.error("Boshlanish va tugash sanalarini tanlang");
+      return;
+    }
+    const start = new Date(bookingStartDate);
+    const end = new Date(bookingEndDate);
+    if (Number.isNaN(+start) || Number.isNaN(+end) || end <= start) {
+      toast.error("Tugash sanasi boshlanishdan keyin bo‘lishi kerak");
+      return;
+    }
+    if (paymentChannel === "payme" || paymentChannel === "click") {
+      toast(
+        `Demo: ${paymentChannel === "payme" ? "Payme" : "Click"} — haqiqiy to‘lov keyin ulanadi`,
+        { icon: "ℹ️", duration: 2600 },
+      );
+    }
     setIsBooking(true);
     try {
       const stored = localStorage.getItem('baazgo_bookings');
       const bks: Booking[] = stored ? JSON.parse(stored) : [];
 
-      const start = new Date(bookingStartDate);
-      const end = new Date(bookingEndDate);
       const days = Math.ceil(
         (end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24),
       );
@@ -465,6 +512,7 @@ export default function App() {
         toast.error(
           "Bu sanalar uchun furgon allaqachon band. Boshqa muddat tanlang.",
         );
+        setIsBooking(false);
         return;
       }
 
@@ -635,9 +683,9 @@ export default function App() {
         </div>
       </header>
 
-      <main className="relative flex min-h-0 flex-1 flex-col overflow-hidden max-sm:pb-[calc(5.35rem+env(safe-area-inset-bottom,0px))]">
-        {/* Map Area — flex-col + min-h-0 fixes iOS height; inset fills main so Leaflet gets real dimensions */}
-        <div className="absolute inset-0 z-0 min-h-0">
+      <main className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
+        {/* Map ends above mobile tab bar so the preview card never sits under the nav */}
+        <div className="absolute inset-x-0 top-0 z-0 min-h-0 bottom-0 max-sm:bottom-[calc(3.75rem+env(safe-area-inset-bottom,0px))]">
           <MapContainer 
             center={[41.2995, 69.2401]} 
             zoom={6} 
@@ -710,7 +758,7 @@ export default function App() {
                 animate={{ y: 0, opacity: 1 }}
                 exit={{ y: 20, opacity: 0 }}
                 transition={{ duration: 0.2, ease: [0.25, 0.1, 0.25, 1] }}
-                className="absolute bottom-3 sm:bottom-6 left-0 right-0 mx-auto w-[92%] max-w-sm z-[1000] glass-card rounded-[20px] sm:rounded-[24px] p-3 sm:p-5 shadow-2xl border border-white/50 pointer-events-auto"
+                className="absolute bottom-2 left-0 right-0 mx-auto w-[92%] max-w-sm z-[1000] glass-card rounded-[20px] sm:bottom-6 sm:rounded-[24px] p-3 sm:p-5 shadow-2xl border border-white/50 pointer-events-auto max-sm:max-h-[min(42vh,22rem)] max-sm:overflow-y-auto"
               >
                 <div className="flex gap-3 sm:gap-4">
                   <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl overflow-hidden shrink-0 shadow-sm border border-black/5 bg-slate-100">
@@ -819,7 +867,11 @@ export default function App() {
                            ← Profilga qaytish
                          </button>
                          <h3 className="text-slate-900  text-lg tracking-tight mb-4">Boshqaruv Paneli</h3>
-                         <AdminDashboard bookings={allBookings} trucks={trucks} />
+                         <AdminDashboard
+                           bookings={allBookings}
+                           trucks={trucks}
+                           registeredUsersCount={registeredUsersCount}
+                         />
                       </div>
                     ) : (
                       <div className="space-y-8">
@@ -1437,6 +1489,7 @@ export default function App() {
                               className="w-24 text-xs text-slate-900  bg-white border border-black/10 rounded-md p-1 outline-none uppercase placeholder:normal-case placeholder:font-normal"
                             />
                             <button 
+                              type="button"
                               onClick={() => {
                                 if (promoCode === 'BAAZGO20') {
                                   setDiscountPercent(20);
@@ -1446,7 +1499,7 @@ export default function App() {
                                   setDiscountPercent(0);
                                 }
                               }}
-                              className="text-xs bg-black text-slate-900  px-2 py-1 rounded-md font-medium"
+                              className="text-xs bg-slate-900 text-white px-2 py-1 rounded-md font-medium hover:bg-slate-800"
                             >
                               Qo'llash
                             </button>
@@ -1488,14 +1541,16 @@ export default function App() {
                   <div className="p-6 pt-4 pb-8 flex flex-col gap-3">
                      <div className="grid grid-cols-2 gap-3 mb-2">
                         <button 
-                           onClick={confirmBooking}
+                           type="button"
+                           onClick={() => void confirmBooking("payme")}
                            disabled={isBooking}
                            className="w-full bg-[#00A199]/10 text-[#00A199] border border-transparent hover:border-[#00A199]/30 py-3 rounded-[16px] font-medium text-[15px] flex items-center justify-center gap-2 disabled:opacity-70 transition-all active:scale-[0.98]"
                         >
                            Payme orqali
                         </button>
                         <button 
-                           onClick={confirmBooking}
+                           type="button"
+                           onClick={() => void confirmBooking("click")}
                            disabled={isBooking}
                            className="w-full bg-[#0082FB]/10 text-[#0082FB] border border-transparent hover:border-[#0082FB]/30 py-3 rounded-[16px] font-medium text-[15px] flex items-center justify-center gap-2 disabled:opacity-70 transition-all active:scale-[0.98]"
                         >
@@ -1503,7 +1558,8 @@ export default function App() {
                         </button>
                      </div>
                      <button 
-                        onClick={confirmBooking}
+                        type="button"
+                        onClick={() => void confirmBooking("cash")}
                         disabled={isBooking}
                         className="w-full bg-white/40 backdrop-blur-lg border border-white/50 text-slate-900 shadow-sm  py-4 rounded-[16px] font-medium text-[15px] shadow-sm shadow-[#0f172a]/10 flex items-center justify-center gap-2 disabled:opacity-70 transition-all active:scale-[0.98]"
                      >
@@ -1523,10 +1579,13 @@ export default function App() {
 
         {/* My Bookings Page */}
         <AnimatePresence>
-          {isMyBookingsOpen && (
+            {isMyBookingsOpen && (
             <MyBookingsPage 
               isOpen={isMyBookingsOpen} 
-              onClose={() => setIsMyBookingsOpen(false)} 
+              onClose={() => {
+                setIsMyBookingsOpen(false);
+                setMobileTab("map");
+              }} 
               bookings={userBookings} 
               trucks={trucks} 
             />
@@ -1536,31 +1595,62 @@ export default function App() {
 
       </main>
 
-      {/* Navigation for Mobile */}
-      <nav className="absolute bottom-0 left-0 right-0 w-full glass rounded-t-[24px] flex flex-col sm:hidden z-[1200] shadow-[0_-10px_40px_rgba(0,0,0,0.08)] border-t border-white pb-[env(safe-area-inset-bottom)] pointer-events-auto">
-        <p className="px-2 pt-1.5 pb-0.5 text-center text-[8px] text-slate-400 leading-tight">
+      {/* Mobile tab bar — own layer above map chrome; height matches main map bottom inset */}
+      <nav
+        className="pointer-events-auto absolute bottom-0 left-0 right-0 z-[1250] flex flex-col border-t border-black/5 bg-white/95 shadow-[0_-4px_24px_rgba(0,0,0,0.06)] backdrop-blur-md sm:hidden max-sm:rounded-t-2xl dark:border-white/10 dark:bg-zinc-900/95"
+        style={{ paddingBottom: "max(4px, env(safe-area-inset-bottom, 0px))" }}
+        aria-label="Asosiy navigatsiya"
+      >
+        <p className="select-none px-2 pt-0.5 text-center text-[6px] leading-tight text-slate-400 dark:text-slate-500">
           <a
             href="https://www.openstreetmap.org/copyright"
             target="_blank"
             rel="noreferrer"
             className="underline decoration-slate-300/80"
           >
-            © OpenStreetMap
+            © OSM
           </a>
         </p>
-        <div className="flex w-full p-1 pb-3">
-        <button type="button" className="flex-1 flex flex-col items-center justify-center pt-3 pb-2 text-[#007AFF] inline-block drop-shadow-md hover:bg-white/50 transition-colors rounded-2xl">
-          <MapIcon className="w-6 h-6 mb-1" />
-          <span className="text-[10px] font-medium">Asosiy</span>
-        </button>
-        <button type="button" className="flex-1 flex flex-col items-center justify-center pt-3 pb-2 text-slate-500 font-medium hover:text-slate-900 hover:bg-white/50 transition-colors rounded-2xl" onClick={() => setIsSidebarOpen(true)}>
-          <Calendar className="w-6 h-6 mb-1" />
-          <span className="text-[10px] font-medium">Ijara</span>
-        </button>
-        <button type="button" className="flex-1 flex flex-col items-center justify-center pt-3 pb-2 text-slate-500 font-medium hover:text-slate-900 hover:bg-white/50 transition-colors rounded-2xl" onClick={() => setIsSidebarOpen(true)}>
-          <UserIcon className="w-6 h-6 mb-1" />
-          <span className="text-[10px] font-medium">Profil</span>
-        </button>
+        <div className="flex w-full items-stretch gap-0.5 px-1 pb-0.5 pt-0.5">
+          <button
+            type="button"
+            onClick={goMobileMap}
+            className={cn(
+              "flex min-h-[44px] flex-1 flex-col items-center justify-center rounded-xl py-1 text-[9px] font-medium transition-colors active:scale-[0.98]",
+              mobileTab === "map"
+                ? "text-[#007AFF] bg-[#007AFF]/10"
+                : "text-slate-500 hover:bg-black/5 hover:text-slate-900 dark:hover:bg-white/10",
+            )}
+          >
+            <MapIcon className="mb-0.5 h-5 w-5 shrink-0" strokeWidth={2} />
+            <span>Asosiy</span>
+          </button>
+          <button
+            type="button"
+            onClick={goMobileBookings}
+            className={cn(
+              "flex min-h-[44px] flex-1 flex-col items-center justify-center rounded-xl py-1 text-[9px] font-medium transition-colors active:scale-[0.98]",
+              mobileTab === "book"
+                ? "text-[#007AFF] bg-[#007AFF]/10"
+                : "text-slate-500 hover:bg-black/5 hover:text-slate-900 dark:hover:bg-white/10",
+            )}
+          >
+            <Calendar className="mb-0.5 h-5 w-5 shrink-0" strokeWidth={2} />
+            <span>Ijara</span>
+          </button>
+          <button
+            type="button"
+            onClick={goMobileProfile}
+            className={cn(
+              "flex min-h-[44px] flex-1 flex-col items-center justify-center rounded-xl py-1 text-[9px] font-medium transition-colors active:scale-[0.98]",
+              mobileTab === "profile"
+                ? "text-[#007AFF] bg-[#007AFF]/10"
+                : "text-slate-500 hover:bg-black/5 hover:text-slate-900 dark:hover:bg-white/10",
+            )}
+          >
+            <UserIcon className="mb-0.5 h-5 w-5 shrink-0" strokeWidth={2} />
+            <span>Profil</span>
+          </button>
         </div>
       </nav>
 
@@ -1600,7 +1690,7 @@ export default function App() {
                        <div className="min-w-[280px] bg-gradient-to-r from-[#FF007A] to-[#FF4D4D] rounded-2xl p-4 text-slate-900  flex flex-col justify-center shadow-lg shadow-[#FF4D4D]/20">
                          <span className="bg-white/20 text-slate-900  text-[10px] font-medium px-2 py-1 rounded-md w-fit mb-2 uppercase tracking-wider backdrop-blur-md">YANGI</span>
                          <h4 className="font-medium text-lg leading-tight mb-1">Bahor Chegirmasi 20%</h4>
-                         <p className="text-slate-900   font-medium text-[11px] font-medium">Barcha furgonlar uchun. Promo: XAZRAT20</p>
+                         <p className="text-slate-900   font-medium text-[11px] font-medium">Barcha furgonlar uchun. Promo: BAAZGO20</p>
                        </div>
                        <div className="min-w-[280px] bg-gradient-to-r from-[#00A199] to-[#00D2C8] rounded-2xl p-4 text-slate-900  flex flex-col justify-center shadow-lg shadow-[#00A199]/20">
                          <span className="bg-white/20 text-slate-900  text-[10px] font-medium px-2 py-1 rounded-md w-fit mb-2 uppercase tracking-wider backdrop-blur-md">BONUS</span>

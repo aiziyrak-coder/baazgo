@@ -249,6 +249,11 @@ body {
   z-index: 1;
 }
 
+/* Keep map controls below app header (z-1100) and preview card */
+.leaflet-control-container {
+  z-index: 450 !important;
+}
+
 .map-root.leaflet-container {
   min-height: 100%;
   isolation: isolate;

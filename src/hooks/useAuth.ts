@@ -5,6 +5,20 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
   console.error('Mock Error: ', error);
 }
 
+const PINS_KEY = 'baazgo_credential_pins';
+
+function readPins(): Record<string, string> {
+  try {
+    return JSON.parse(localStorage.getItem(PINS_KEY) || '{}') as Record<string, string>;
+  } catch {
+    return {};
+  }
+}
+
+function writePins(pins: Record<string, string>) {
+  localStorage.setItem(PINS_KEY, JSON.stringify(pins));
+}
+
 // Demo user
 const DEMO_USER: UserProfile = {
   uid: 'demo-user-123',
@@ -23,7 +37,11 @@ export function useAuth() {
   const [loginError, setLoginError] = useState<string | null>(null);
 
   useEffect(() => {
-    // Check if user is stored in local storage
+    const pins = readPins();
+    if (pins[DEMO_USER.email] === undefined) {
+      pins[DEMO_USER.email] = 'demo1234';
+      writePins(pins);
+    }
     const storedUser = localStorage.getItem('baazgo_user');
     if (storedUser) {
       try {
@@ -55,8 +73,10 @@ export function useAuth() {
       let allUsers: UserProfile[] = storedUsers ? JSON.parse(storedUsers) : [DEMO_USER];
       
       const foundUser = allUsers.find(u => u.email === email);
-      
-      if (foundUser && pin === 'demo1234') { // Using static pin or could check if we stored it
+      const pins = readPins();
+      const expectedPin = pins[email] ?? 'demo1234';
+
+      if (foundUser && pin === expectedPin) {
         setUser({ uid: foundUser.uid });
         setProfile({ ...foundUser, role: foundUser.email === DEMO_USER.email ? 'admin' : 'user' }); // DEMO_USER is admin
         localStorage.setItem('baazgo_user', JSON.stringify({ ...foundUser, role: foundUser.email === DEMO_USER.email ? 'admin' : 'user' }));
@@ -97,6 +117,10 @@ export function useAuth() {
       
       allUsers.push(newUser);
       localStorage.setItem('baazgo_all_users', JSON.stringify(allUsers));
+
+      const pins = readPins();
+      pins[newUser.email] = pin;
+      writePins(pins);
       
       setUser({ uid: newUser.uid });
       setProfile(newUser);

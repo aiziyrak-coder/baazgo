@@ -14,8 +14,8 @@ export function PageScaffold({ title, children }: PageScaffoldProps) {
   const navigate = useNavigate();
 
   return (
-    <div className="flex min-h-[100dvh] flex-col bg-[#F2F2F7] text-slate-900">
-      <header className="sticky top-0 z-10 flex items-center gap-3 border-b border-black/5 bg-white/95 px-4 py-3 pt-[max(env(safe-area-inset-top),0.75rem)] shadow-sm backdrop-blur-sm">
+    <div className="flex min-h-[100dvh] flex-col bg-[#F2F2F7] text-slate-900 dark:bg-black dark:text-slate-100">
+      <header className="sticky top-0 z-10 flex items-center gap-3 border-b border-black/5 bg-white/95 px-4 py-3 pt-[max(env(safe-area-inset-top),0.75rem)] shadow-sm backdrop-blur-sm dark:border-white/10 dark:bg-zinc-900/95">
         <button
           type="button"
           onClick={() => navigate(-1)}
@@ -35,7 +35,7 @@ export function PageScaffold({ title, children }: PageScaffoldProps) {
           Xarita
         </Link>
       </header>
-      <main className="mx-auto w-full max-w-2xl flex-1 px-4 py-6 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
+      <main className="mx-auto w-full max-w-2xl flex-1 px-4 py-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] dark:text-slate-200">
         {children}
       </main>
     </div>

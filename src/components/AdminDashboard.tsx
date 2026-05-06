@@ -9,9 +9,15 @@ import { format, subDays } from 'date-fns';
 interface AdminDashboardProps {
   bookings: Booking[];
   trucks: FoodTruck[];
+  /** Ro‘yxatdan o‘tgan foydalanuvchilar (local demo store). */
+  registeredUsersCount: number;
 }
 
-export function AdminDashboard({ bookings, trucks }: AdminDashboardProps) {
+export function AdminDashboard({
+  bookings,
+  trucks,
+  registeredUsersCount,
+}: AdminDashboardProps) {
   const stats = useMemo(() => {
     const totalRevenue = bookings
       .filter(b => b.paymentStatus === 'paid' && b.status !== 'cancelled')
@@ -50,7 +56,7 @@ export function AdminDashboard({ bookings, trucks }: AdminDashboardProps) {
           { title: "Tushum", value: stats.totalRevenue >= 1000000 ? `${(stats.totalRevenue/1000000).toFixed(1)}M` : `${formatCurrency(stats.totalRevenue)}`, icon: DollarSign, color: "text-[#34C759]", bg: "bg-[#34C759]/10" },
           { title: "Bron", value: stats.activeBookings, icon: Activity, color: "text-[#007AFF]", bg: "bg-[#007AFF]/10" },
           { title: "Ijarada", value: `${stats.rentedTrucksCount}/${trucks.length}`, icon: Truck, color: "text-[#FF9500]", bg: "bg-[#FF9500]/10" },
-          { title: "Yangi", value: "+24", icon: Users, color: "text-[#AF52DE]", bg: "bg-[#AF52DE]/10" }
+          { title: "Foydalanuvchi", value: String(Math.max(0, registeredUsersCount)), icon: Users, color: "text-[#AF52DE]", bg: "bg-[#AF52DE]/10" }
         ].map((stat, i) => (
           <motion.div 
             initial={{ opacity: 0, y: 10 }}
