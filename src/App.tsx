@@ -29,6 +29,7 @@ import { FoodTruck, Booking, OperationType, SiteNotification } from './types';
 import { generateMockTrucks } from './lib/mockData';
 import { cn, formatCurrency } from './lib/utils';
 import { useDarkMode } from './lib/useDarkMode';
+import { useIsNarrowViewport } from './hooks/useIsNarrowViewport';
 import { AdminDashboard } from './components/AdminDashboard';
 import { MyBookingsPage } from './components/MyBookingsPage';
 import { Moon, Sun } from 'lucide-react';
@@ -72,6 +73,32 @@ const createCustomIcon = (status: string) => {
   return iconRented;
 };
 
+/** Lightweight div markers for phones/tablets (no SVG) — much cheaper to paint per frame. */
+const simpleIconAvailable = L.divIcon({
+  className: 'bg-transparent border-none',
+  html: '<div style="width:18px;height:18px;background:#34C759;border-radius:50%;border:2.5px solid #fff;box-shadow:0 1px 5px rgba(0,0,0,.28)"></div>',
+  iconSize: [18, 18],
+  iconAnchor: [9, 9],
+});
+const simpleIconFinishing = L.divIcon({
+  className: 'bg-transparent border-none',
+  html: '<div style="width:18px;height:18px;background:#FF9500;border-radius:50%;border:2.5px solid #fff;box-shadow:0 1px 5px rgba(0,0,0,.28)"></div>',
+  iconSize: [18, 18],
+  iconAnchor: [9, 9],
+});
+const simpleIconRented = L.divIcon({
+  className: 'bg-transparent border-none',
+  html: '<div style="width:18px;height:18px;background:#FF3B30;border-radius:50%;border:2.5px solid #fff;box-shadow:0 1px 5px rgba(0,0,0,.28)"></div>',
+  iconSize: [18, 18],
+  iconAnchor: [9, 9],
+});
+
+const createSimpleCustomIcon = (status: string) => {
+  if (status === 'available') return simpleIconAvailable;
+  if (status === 'finishing_soon') return simpleIconFinishing;
+  return simpleIconRented;
+};
+
 const MapUpdater = ({ userLocation }: { userLocation: {lat: number, lng: number} | null }) => {
   const map = useMap();
   useEffect(() => {
@@ -82,18 +109,21 @@ const MapUpdater = ({ userLocation }: { userLocation: {lat: number, lng: number}
   return null;
 };
 
-/** Memoized marker — avoids reconciling 500+ markers when opening the preview card. */
+/** Memoized marker — avoids reconciling hundreds of markers when opening the preview card. */
 const TruckMapMarker = memo(function TruckMapMarker({
   truck,
   onSelect,
+  simpleIcon,
 }: {
   truck: FoodTruck;
   onSelect: (t: FoodTruck) => void;
+  simpleIcon: boolean;
 }) {
+  const icon = simpleIcon ? createSimpleCustomIcon(truck.status) : createCustomIcon(truck.status);
   return (
     <Marker
       position={[truck.latitude, truck.longitude]}
-      icon={createCustomIcon(truck.status)}
+      icon={icon}
       eventHandlers={{
         click: () => onSelect(truck),
       }}
@@ -156,6 +186,7 @@ export default function App() {
   const [isRegisteringTruck, setIsRegisteringTruck] = useState(false);
   
   const { isDarkMode, toggleDarkMode } = useDarkMode();
+  const isNarrowViewport = useIsNarrowViewport();
   
   const [bookingStartDate, setBookingStartDate] = useState<string>('');
   const [bookingEndDate, setBookingEndDate] = useState<string>('');
@@ -194,9 +225,10 @@ export default function App() {
   };
   
   useEffect(() => {
-    // In a production app, we'd fetch trucks from Firestore instead of mock data
-    setTrucks(generateMockTrucks(450));
-  }, []);
+    // Fewer markers on phones/tablets — DOM + clustering stays responsive on mobile GPUs.
+    const count = isNarrowViewport ? 140 : 450;
+    setTrucks(generateMockTrucks(count));
+  }, [isNarrowViewport]);
 
   const [isMyBookingsOpen, setIsMyBookingsOpen] = useState(false);
 
@@ -537,33 +569,44 @@ export default function App() {
             maxBounds={[[37.0, 56.0], [46.0, 74.0]]}
             maxBoundsViscosity={1.0}
             minZoom={5}
+            zoomAnimation={!isNarrowViewport}
+            fadeAnimation={!isNarrowViewport}
           >
             <MapUpdater userLocation={userLocation} />
             <TileLayer
               attribution=""
               url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+              detectRetina={!isNarrowViewport}
             />
             <MarkerClusterGroup
               chunkedLoading
-              chunkInterval={120}
-              chunkDelay={30}
-              maxClusterRadius={56}
+              chunkInterval={isNarrowViewport ? 200 : 120}
+              chunkDelay={isNarrowViewport ? 55 : 30}
+              maxClusterRadius={isNarrowViewport ? 78 : 56}
               showCoverageOnHover={false}
               spiderfyOnMaxZoom
+              animate={!isNarrowViewport}
             >
               {userLocation && (
                 <Marker 
                   position={[userLocation.lat, userLocation.lng]}
                   icon={L.divIcon({
                     className: 'bg-transparent border-none',
-                    html: `<div class="w-4 h-4 bg-[#007AFF] rounded-full border-2 border-white shadow-md animate-pulse"></div>`,
-                    iconSize: [20, 20],
-                    iconAnchor: [10, 10],
+                    html: isNarrowViewport
+                      ? `<div style="width:12px;height:12px;background:#007AFF;border-radius:50%;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.25)"></div>`
+                      : `<div class="w-4 h-4 bg-[#007AFF] rounded-full border-2 border-white shadow-md animate-pulse"></div>`,
+                    iconSize: isNarrowViewport ? [12, 12] : [20, 20],
+                    iconAnchor: isNarrowViewport ? [6, 6] : [10, 10],
                   })}
                 />
               )}
               {filteredTrucks.map((truck) => (
-                <TruckMapMarker key={truck.id} truck={truck} onSelect={selectTruck} />
+                <TruckMapMarker
+                  key={truck.id}
+                  truck={truck}
+                  onSelect={selectTruck}
+                  simpleIcon={isNarrowViewport}
+                />
               ))}
             </MarkerClusterGroup>
           </MapContainer>
@@ -681,7 +724,11 @@ export default function App() {
                 initial={{ x: "100%" }}
                 animate={{ x: 0 }}
                 exit={{ x: "100%" }}
-                transition={{ type: "spring", damping: 25, stiffness: 200 }}
+                transition={
+                  isNarrowViewport
+                    ? { duration: 0.22, ease: [0.25, 0.1, 0.25, 1] }
+                    : { type: "spring", damping: 25, stiffness: 200 }
+                }
                 className="fixed right-0 top-0 bottom-0 w-[85%] max-w-sm glass z-[2001] shadow-2xl flex flex-col border-l border-white/40"
               >
                 <div className="p-6 pt-10 border-b border-black/5 flex items-center justify-between">

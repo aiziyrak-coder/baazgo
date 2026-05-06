@@ -134,6 +134,74 @@ body {
   color: white;
 }
 
+/*
+ * Mobile Safari / Chrome: backdrop-filter over a live Leaflet map tanks FPS and can
+ * freeze the tab. Use opaque/semi-opaque panels instead (still reads “glass”, no blur).
+ */
+@media (max-width: 1023px) {
+  .glass,
+  .glass-card,
+  .glass-btn,
+  .glass-dark,
+  :root.dark .glass,
+  :root.dark .glass-card,
+  :root.dark .glass-btn {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+
+  .glass {
+    background: rgba(255, 255, 255, 0.94);
+    border: 1px solid rgba(0, 0, 0, 0.06);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  }
+
+  .glass-card {
+    background: rgba(255, 255, 255, 0.96);
+    border: 1px solid rgba(0, 0, 0, 0.06);
+    box-shadow: 0 10px 36px rgba(0, 0, 0, 0.1);
+  }
+
+  .glass-btn {
+    background: rgba(255, 255, 255, 0.92);
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.06);
+  }
+
+  :root.dark .glass {
+    background: rgba(28, 28, 30, 0.96);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+  }
+
+  :root.dark .glass-card {
+    background: rgba(28, 28, 30, 0.96);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    color: #fff;
+  }
+
+  .animate-marker {
+    animation: none !important;
+  }
+
+  .leaflet-control-zoom a {
+    backdrop-filter: none !important;
+    background: rgba(255, 255, 255, 0.96) !important;
+  }
+
+  /* Tailwind backdrop-blur utilities stack costly filters over the map — strip on touch devices. */
+  .backdrop-blur-none,
+  .backdrop-blur-sm,
+  .backdrop-blur,
+  .backdrop-blur-md,
+  .backdrop-blur-lg,
+  .backdrop-blur-xl,
+  .backdrop-blur-2xl,
+  .backdrop-blur-3xl {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+}
+
 .leaflet-container {
   width: 100%;
   height: 100%;
